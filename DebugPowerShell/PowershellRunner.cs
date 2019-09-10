@@ -145,7 +145,7 @@ namespace DebugPowerShell
                         if (
                             !VariableMap.ContainsKey(psv.Name) ||
                             (
-                                VariableMap[psv.Name]!=null &&
+                                VariableMap[psv.Name] != null &&
                                 VariableMap[psv.Name].ToString() != psv.Value.ToString()
                             )
                         )
@@ -230,14 +230,6 @@ namespace DebugPowerShell
                 ShowHelpMessage = true;
             }
 
-            // Break point summary message.
-            string breakPointMsg = String.Format(System.Globalization.CultureInfo.InvariantCulture,
-                "Breakpoints: Enabled {0}, Disabled {1}",
-                (BreakPoints.Values.Where<Breakpoint>((bp) => { return bp.Enabled; })).Count(),
-                (BreakPoints.Values.Where<Breakpoint>((bp) => { return !bp.Enabled; })).Count());
-            Logger.Out(breakPointMsg);
-            Logger.Out();
-
             if (args.Breakpoints.Count > 0)
             {
                 Logger.Out("Debugger hit breakpoint on:");
@@ -270,21 +262,19 @@ namespace DebugPowerShell
             Debugger debugger = sender as Debugger;
             DebuggerResumeAction? resumeAction = null;
 
-            PrintDebuggerStopMessage(args);
             UpdateVariableMap(debugger);
+            PrintDebuggerStopMessage(args);
 
             while (resumeAction == null)
             {
-                Console.Write("PowerShell Deubugger>> ");
-
                 if (CommandCount > 0)
                 {
-                    Console.WriteLine("RunCommand: " + Command);
                     resumeAction = RunCommand(debugger, Command)?.ResumeAction;
                     CommandCount--;
                 }
                 else
                 {
+                    Console.Write("PowerShell Deubugger>> ");
                     string commandLine = Console.ReadLine();
                     Logger.Out();
                     string[] commandArgs = commandLine.Split(' ');
