@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using System.Management.Automation.Language;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using System.IO;
@@ -249,13 +250,14 @@ namespace DebugPowerShell
 
             if (args.InvocationInfo != null)
             {
-                Logger.Out(args.InvocationInfo.PositionMessage);
-                Logger.Out("> " + args.InvocationInfo.Line.Substring(
+                string currentLine = args.InvocationInfo.Line.Substring(
                     args.InvocationInfo.OffsetInLine - 1,
-                    args.InvocationInfo.Line.Length - args.InvocationInfo.OffsetInLine));
+                    args.InvocationInfo.Line.Length - args.InvocationInfo.OffsetInLine + 1);
 
-                // args.InvocationInfo.ScriptPosition
-                // PositionUtilities value = (PositionUtilities)args.InvocationInfo.GetType().GetProperty("ScriptPosition").GetValue(obj, null);
+                Token[] tokens;
+                ParseError[] parseErrors;
+                ScriptBlockAst scriptBlock = System.Management.Automation.Language.Parser.ParseInput(currentLine, out tokens, out parseErrors);
+                Logger.Out("> " + scriptBlock.EndBlock.Statements[0].ToString());
             }
 
             Console.ForegroundColor = saveFGColor;
