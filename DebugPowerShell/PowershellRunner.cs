@@ -256,7 +256,7 @@ namespace DebugPowerShell
                 }
                 else
                 {
-                    Console.Write("PowerShell Deubugger>> ");
+                    Console.Write("PowerShell Debugger>> ");
                     string commandLine = Console.ReadLine();
                     Logger.Out();
                     string[] commandArgs = commandLine.Split(' ');
@@ -266,11 +266,18 @@ namespace DebugPowerShell
                         continue;
                     }
 
-                    Command = commandArgs[0];
-
-                    if (commandArgs.Length > 1)
+                    if (commandArgs[0] == "s")
                     {
-                        CommandCount = Convert.ToInt32(commandArgs[1]);
+                        Command = commandArgs[0];
+
+                        if (commandArgs.Length > 1)
+                        {
+                            CommandCount = Convert.ToInt32(commandArgs[1]);
+                        }
+                    }
+                    else
+                    {
+                        Command = commandLine;
                     }
 
                     resumeAction = RunCommand(debugger, Command)?.ResumeAction;
@@ -283,6 +290,8 @@ namespace DebugPowerShell
             //  - StepOut       Step out of function.
             //  - StepOver      Step over function.
             //  - Stop          Stop debugging.
+
+            Logger.Out("resumeAction.Value: " + resumeAction.Value);
             args.ResumeAction = resumeAction.Value;
         }
 
