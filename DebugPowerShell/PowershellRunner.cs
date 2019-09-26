@@ -26,36 +26,28 @@ namespace DebugPowerShell
 
         public void RunCode(string[] args)
         {
-            string fileName = string.Empty;
+            string filePath = string.Empty;
 
             if (!System.IO.File.Exists(args[0]))
             {
-                fileName = System.IO.Path.GetTempPath() + Guid.NewGuid().ToString() + ".ps1";
-                System.IO.File.WriteAllText(fileName, string.Join(" ", args));
+                filePath = System.IO.Path.GetTempPath() + Guid.NewGuid().ToString() + ".ps1";
+                System.IO.File.WriteAllText(filePath, string.Join(" ", args));
             }
             else
             {
-                fileName = args[0];
+                filePath = System.IO.Path.Combine(Environment.CurrentDirectory, args[0]);
             }
 
-            RunFile(fileName);
+            RunFile(filePath);
         }
 
         /// <summary>
         /// Method to run the sample script and handle debugger events.
         /// </summary>
-        public void RunFile(string fileName)
+        public void RunFile(string filePath)
         {
-            Logger.Out("Starting PowerShell Debugger Sample");
-            Logger.Out();
-
-            string filePath = System.IO.Path.Combine(Environment.CurrentDirectory, fileName);
-
             using (Runspace runspace = RunspaceFactory.CreateRunspace())
             {
-                // Open runspace and set debug mode to debug PowerShell scripts and 
-                // Workflow scripts.  PowerShell script debugging is enabled by default,
-                // Workflow debugging is opt-in.
                 runspace.Open();
                 runspace.Debugger.SetDebugMode(DebugModes.LocalScript);
 
@@ -66,19 +58,12 @@ namespace DebugPowerShell
                     runspace.Debugger.BreakpointUpdated += HandlerBreakpointUpdatedEvent;
                     runspace.Debugger.DebuggerStop += HandleDebuggerStopEvent;
 
-                    // Set initial breakpoint on line 10 of script.  This breakpoint
-                    // will be in the script workflow function.
-                    powerShell.AddCommand("Set-PSBreakpoint").AddParameter("Script", filePath).AddParameter("Line", 1);
-                    powerShell.AddCommand("Set-ExecutionPolicy").AddParameter("ExecutionPolicy", "Bypass").AddParameter("Scope", "CurrentUser");
-                    powerShell.Invoke();
-
                     Logger.Out("Starting script file: " + filePath);
                     Logger.Out();
-
-                    // Run script file.
-                    powerShell.Commands.Clear();
+                    powerShell.AddCommand("Set-PSBreakpoint").AddParameter("Script", filePath).AddParameter("Line", 1);
                     powerShell.AddCommand("Set-ExecutionPolicy").AddParameter("ExecutionPolicy", "Bypass").AddParameter("Scope", "CurrentUser");
-                    powerShell.AddScript(filePath).AddCommand("Out-String").AddParameter("Stream", true);
+                    powerShell.AddScript(filePath);
+
                     var scriptOutput = new PSDataCollection<PSObject>();
                     scriptOutput.DataAdded += (sender, args) =>
                     {
@@ -103,9 +88,6 @@ namespace DebugPowerShell
                     }
                 }
             }
-
-            Logger.Out("Press any key to exit.");
-            Console.ReadKey(true);
         }
         #endregion
 
