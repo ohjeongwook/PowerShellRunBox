@@ -18,19 +18,17 @@ namespace DebugPowerShell
         {
             if (fileName != null)
             {
-                if (!File.Exists(fileName))
+                if (File.Exists(fileName))
                 {
-                    return;
-                }
-
-                using (StreamReader r = new StreamReader(fileName))
-                {
-                    var jsonString = r.ReadToEnd();
-                    dynamic dynObj = JsonConvert.DeserializeObject(jsonString);
-
-                    foreach (var item in dynObj)
+                    using (StreamReader r = new StreamReader(fileName))
                     {
-                        VariableReplaceMap[item.Path.ToString()] = item.Value.ToString();
+                        var jsonString = r.ReadToEnd();
+                        dynamic dynObj = JsonConvert.DeserializeObject(jsonString);
+
+                        foreach (var item in dynObj)
+                        {
+                            VariableReplaceMap[item.Path.ToString()] = item.Value.ToString();
+                        }
                     }
                 }
             }
@@ -41,7 +39,6 @@ namespace DebugPowerShell
         // collection of all current breakpoints.
         private void HandlerBreakpointUpdatedEvent(object sender, BreakpointUpdatedEventArgs args)
         {
-            // Write message to console.
             ConsoleColor saveFGColor = Console.ForegroundColor;
             Console.ForegroundColor = ConsoleColor.Yellow;
             Logger.Out();
@@ -77,8 +74,9 @@ namespace DebugPowerShell
 
         private Dictionary<string, object> VariableMap = new Dictionary<string, object>();
 
-        private void UpdateVariableMap(Debugger debugger)
+        private bool UpdateVariableMap(Debugger debugger)
         {
+            bool updatedVariable = false;
             var processVariables = new PSDataCollection<PSObject>();
             processVariables.DataAdded += (dSender, dArgs) =>
             {
@@ -103,6 +101,7 @@ namespace DebugPowerShell
                         {
                             Logger.Out(@"Updated variable " + psv.Name + ": " + psv.Value + " --> " + VariableReplaceMap[psv.Name]);
                             psv.Value = VariableReplaceMap[psv.Name];
+                            updatedVariable = true;
                         }
 
                         VariableMap[psv.Name] = psv.Value;
@@ -128,9 +127,11 @@ namespace DebugPowerShell
             PSCommand psCommand = new PSCommand();
             psCommand.AddScript("Get-Variable");
             DebuggerCommandResults results = debugger.ProcessCommand(psCommand, processVariables);
+
+            return updatedVariable;
         }
 
-        private DebuggerCommandResults RunCommand(Debugger debugger, string command)
+        private DebuggerCommandResults RunDebuggerCommand(Debugger debugger, string command)
         {
             var output = new PSDataCollection<PSObject>();
             output.DataAdded += (dSender, dArgs) =>
@@ -206,9 +207,15 @@ namespace DebugPowerShell
             Debugger debugger = sender as Debugger;
             DebuggerResumeAction? resumeAction = null;
 
-            UpdateVariableMap(debugger);
             PrintDebuggerStopMessage(args);
-            
+            bool updatedVariable = UpdateVariableMap(debugger);
+
+            if (updatedVariable)
+            {
+                args.ResumeAction = DebuggerResumeAction.Continue;
+                return;
+            }
+
             foreach(Breakpoint breakpoint in args.Breakpoints)
             {
                 if (BreakPoints.ContainsKey(breakpoint.Id))
@@ -221,7 +228,7 @@ namespace DebugPowerShell
             {
                 if (CommandCount > 0)
                 {
-                    resumeAction = RunCommand(debugger, Command)?.ResumeAction;
+                    resumeAction = RunDebuggerCommand(debugger, Command)?.ResumeAction;
                     CommandCount--;
                 }
                 else
@@ -250,7 +257,7 @@ namespace DebugPowerShell
                         Command = commandLine;
                     }
 
-                    resumeAction = RunCommand(debugger, Command)?.ResumeAction;
+                    resumeAction = RunDebuggerCommand(debugger, Command)?.ResumeAction;
                 }
             }
 
@@ -287,7 +294,6 @@ namespace DebugPowerShell
                         Logger.Out("Setting variable breakpoint on: " + kv.Key);
                         powerShell.AddStatement().AddCommand("Set-PSBreakpoint").AddParameter("Variable", kv.Key);
                     }
-                    powerShell.AddStatement().AddCommand("Set-ExecutionPolicy").AddParameter("ExecutionPolicy", "Bypass").AddParameter("Scope", "CurrentUser");
                     powerShell.AddScript(filePath);
 
                     var scriptOutput = new PSDataCollection<PSObject>();
