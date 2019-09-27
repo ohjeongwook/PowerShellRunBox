@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{D9C5B29C-551C-4607-B5DB-CAC32596BA6C}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>DebugPowerShell</RootNamespace>
-    <AssemblyName>DebugPowerShell</AssemblyName>
+    <RootNamespace>PowerShellRunBox</RootNamespace>
+    <AssemblyName>PowerShellRunBox</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
