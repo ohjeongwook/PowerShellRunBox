@@ -34,6 +34,25 @@ namespace DebugPowerShell
             }
         }
 
+        private void ConsoleWrite(string message)
+        {
+            Console.Write(message);
+        }
+
+        private void ConsoleWrite(string message, ConsoleColor color)
+        {
+            ConsoleColor saveFGColor = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+            Console.Write(message);
+            Console.ForegroundColor = saveFGColor;
+        }
+
+        private void ConsoleWriteLn(string message, ConsoleColor color)
+        {
+            ConsoleWrite(message, color);
+            ConsoleWrite("\n", color);
+        }
+
         // Method to handle the Debugger BreakpointUpdated event.
         // This method will display the current breakpoint change and maintain a 
         // collection of all current breakpoints.
@@ -160,7 +179,7 @@ namespace DebugPowerShell
             {
                 if (!string.IsNullOrEmpty(name))
                 {
-                    Logger.Out(prefix + @"* " + name);
+                    ConsoleWriteLn(prefix + @"* " + name, ConsoleColor.Red);
                 }
 
                 Array arr = (Array)(value);
@@ -168,7 +187,7 @@ namespace DebugPowerShell
                 if (value is System.Char[])
                 {
                     byte[] bytes = Encoding.ASCII.GetBytes((System.Char[])value);
-                    Logger.Out(DumpHex(bytes, 16, prefix + "   "));
+                    ConsoleWriteLn(DumpHex(bytes, 16, prefix + "   "), ConsoleColor.Red);
                 }
                 else
                 {
@@ -182,11 +201,11 @@ namespace DebugPowerShell
             {
                 if (string.IsNullOrEmpty(name))
                 {
-                    Logger.Out(prefix + value);
+                    ConsoleWriteLn(prefix + value, ConsoleColor.Red);
                 }
                 else
                 {
-                    Logger.Out(prefix + @"* " + name + ": " + value);
+                    ConsoleWriteLn(prefix + @"* " + name + ": " + value, ConsoleColor.Red);
                 }
             }
         }
@@ -218,7 +237,7 @@ namespace DebugPowerShell
                         {
                             if (psv.Value != VariableReplaceMap[psv.Name])
                             {
-                                Logger.Out(@"Updated variable " + psv.Name + ": " + psv.Value + " --> " + VariableReplaceMap[psv.Name]);
+                                ConsoleWriteLn(@"Updated variable " + psv.Name + ": " + psv.Value + " --> " + VariableReplaceMap[psv.Name], ConsoleColor.Red);
                                 psv.Value = VariableReplaceMap[psv.Name];
                                 updatedVariable = true;
                             }
@@ -304,8 +323,6 @@ namespace DebugPowerShell
             }
         }
 
-        private string lastInvocationLine = string.Empty;
-
         /// <summary>
         /// Helper method to write debugger stop messages.
         /// </summary>
@@ -331,29 +348,10 @@ namespace DebugPowerShell
 
             if (args.InvocationInfo != null)
             {
-                if (args.InvocationInfo.Line != lastInvocationLine)
-                {
-                    lastInvocationLine = args.InvocationInfo.Line;
-                    Logger.Out("=======================================");
-                    Logger.Out(args.InvocationInfo.Line);
-                    Logger.Out();
-
-                    /*
-                    Token[] tokens;
-                    ParseError[] parseErrors;
-                    ScriptBlockAst scriptBlock = System.Management.Automation.Language.Parser.ParseInput(args.InvocationInfo.Line, out tokens, out parseErrors);
-
-                    foreach (StatementAst statementAst in scriptBlock.EndBlock.Statements)
-                    {
-                        DumpAST(statementAst);
-                    }
-                    Logger.Out();*/
-                }
-
                 {
                     string previousLine = args.InvocationInfo.Line.Substring(
                         0,
-                        args.InvocationInfo.OffsetInLine);
+                        args.InvocationInfo.OffsetInLine-1);
 
                     string currentLine = args.InvocationInfo.Line.Substring(
                         args.InvocationInfo.OffsetInLine - 1,
@@ -383,12 +381,9 @@ namespace DebugPowerShell
                         nextString.Append(statementAst.ToString());
                     }
 
-                    Console.Write(previousString.ToString());
-                    ConsoleColor saveFGColor = Console.ForegroundColor;
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.Write(currentString);
-                    Console.ForegroundColor = saveFGColor;
-                    Console.WriteLine(nextString.ToString());
+                    ConsoleWrite(previousString.ToString());
+                    ConsoleWrite(currentString, ConsoleColor.Yellow);
+                    ConsoleWrite(nextString.ToString()+"\n");
                 }
             }
         }
