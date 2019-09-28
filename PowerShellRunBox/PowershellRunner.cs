@@ -279,15 +279,39 @@ namespace DebugPowerShell
         /// </summary>
         private Dictionary<int, Breakpoint> BreakPoints = new Dictionary<int, Breakpoint>();
 
+        private bool FindAst(Ast ast)
+        {
+            return true;
+        }
+
+        private void DumpAST(Ast ast, int level = 0)
+        {
+            string prefix = "";
+            for(int i=0; i<level; i++)
+            {
+                prefix += " ";
+            }
+
+            foreach (Ast childAst in ast.FindAll(FindAst, false))
+            {
+                if (childAst.Parent != ast)
+                {
+                    continue;
+                }
+
+                Logger.Out(prefix + "AST:" + level.ToString() + " " + childAst.GetType() + " > " + childAst.ToString());
+                DumpAST(childAst, level + 1);
+            }
+        }
+
+        private string lastInvocationLine = string.Empty;
+
         /// <summary>
         /// Helper method to write debugger stop messages.
         /// </summary>
         /// <param name="args">DebuggerStopEventArgs for current debugger stop</param>
         private void PrintDebuggerStopMessage(DebuggerStopEventArgs args)
         {
-            ConsoleColor saveFGColor = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.Yellow;
-
             if (!ShowHelpMessage)
             {
                 Logger.Out("Entering debug mode. Type 'h' to get help.");
@@ -307,17 +331,66 @@ namespace DebugPowerShell
 
             if (args.InvocationInfo != null)
             {
-                string currentLine = args.InvocationInfo.Line.Substring(
-                    args.InvocationInfo.OffsetInLine - 1,
-                    args.InvocationInfo.Line.Length - args.InvocationInfo.OffsetInLine + 1);
+                if (args.InvocationInfo.Line != lastInvocationLine)
+                {
+                    lastInvocationLine = args.InvocationInfo.Line;
+                    Logger.Out("=======================================");
+                    Logger.Out(args.InvocationInfo.Line);
+                    Logger.Out();
 
-                Token[] tokens;
-                ParseError[] parseErrors;
-                ScriptBlockAst scriptBlock = System.Management.Automation.Language.Parser.ParseInput(currentLine, out tokens, out parseErrors);
-                Logger.Out("> " + scriptBlock.EndBlock.Statements[0].ToString());
+                    /*
+                    Token[] tokens;
+                    ParseError[] parseErrors;
+                    ScriptBlockAst scriptBlock = System.Management.Automation.Language.Parser.ParseInput(args.InvocationInfo.Line, out tokens, out parseErrors);
+
+                    foreach (StatementAst statementAst in scriptBlock.EndBlock.Statements)
+                    {
+                        DumpAST(statementAst);
+                    }
+                    Logger.Out();*/
+                }
+
+                {
+                    string previousLine = args.InvocationInfo.Line.Substring(
+                        0,
+                        args.InvocationInfo.OffsetInLine);
+
+                    string currentLine = args.InvocationInfo.Line.Substring(
+                        args.InvocationInfo.OffsetInLine - 1,
+                        args.InvocationInfo.Line.Length - args.InvocationInfo.OffsetInLine + 1);
+
+                    Token[] tokens;
+                    ParseError[] parseErrors;
+
+                    ScriptBlockAst previousScriptBlock = System.Management.Automation.Language.Parser.ParseInput(previousLine, out tokens, out parseErrors);
+                    ScriptBlockAst currentScriptBlock = System.Management.Automation.Language.Parser.ParseInput(currentLine, out tokens, out parseErrors);
+
+                    StringBuilder previousString = new StringBuilder();
+                    foreach (StatementAst statementAst in previousScriptBlock.EndBlock.Statements)
+                    {
+                        previousString.Append(statementAst.ToString());
+                    }
+
+                    String currentString = string.Empty;
+                    StringBuilder nextString = new StringBuilder();
+                    foreach (StatementAst statementAst in currentScriptBlock.EndBlock.Statements)
+                    {
+                        if(currentString==string.Empty)
+                        {
+                            currentString = statementAst.ToString();
+                            continue;
+                        }
+                        nextString.Append(statementAst.ToString());
+                    }
+
+                    Console.Write(previousString.ToString());
+                    ConsoleColor saveFGColor = Console.ForegroundColor;
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.Write(currentString);
+                    Console.ForegroundColor = saveFGColor;
+                    Console.WriteLine(nextString.ToString());
+                }
             }
-
-            Console.ForegroundColor = saveFGColor;
         }
 
         private string Command = string.Empty;
@@ -408,6 +481,7 @@ namespace DebugPowerShell
                         Logger.Out("Setting variable breakpoint on: " + kv.Key);
                         powerShell.AddStatement().AddCommand("Set-PSBreakpoint").AddParameter("Variable", kv.Key);
                     }
+                    powerShell.AddStatement().AddCommand("Set-ExecutionPolicy").AddParameter("ExecutionPolicy", "Bypass").AddParameter("Scope", "CurrentUser");
                     powerShell.AddScript(filePath);
 
                     var scriptOutput = new PSDataCollection<PSObject>();
