@@ -39,6 +39,12 @@ namespace DebugPowerShell
             Console.Write(message);
         }
 
+        private void ConsoleWriteLn(string message)
+        {
+            Console.Write(message);
+            Console.Write("\n");
+        }
+
         private void ConsoleWrite(string message, ConsoleColor color)
         {
             ConsoleColor saveFGColor = Console.ForegroundColor;
@@ -58,10 +64,6 @@ namespace DebugPowerShell
         // collection of all current breakpoints.
         private void HandlerBreakpointUpdatedEvent(object sender, BreakpointUpdatedEventArgs args)
         {
-            ConsoleColor saveFGColor = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Logger.Out();
-
             switch (args.UpdateType)
             {
                 case BreakpointUpdateType.Set:
@@ -69,26 +71,24 @@ namespace DebugPowerShell
                     {
                         BreakPoints.Add(args.Breakpoint.Id, args.Breakpoint);
                     }
-                    Logger.Out("HandlerBreakpointUpdatedEvent> breakpoint created");
+                    ConsoleWriteLn("HandlerBreakpointUpdatedEvent> breakpoint created");
                     break;
 
                 case BreakpointUpdateType.Removed:
                     BreakPoints.Remove(args.Breakpoint.Id);
-                    Logger.Out("HandlerBreakpointUpdatedEvent> breakpoint removed");
+                    ConsoleWriteLn("HandlerBreakpointUpdatedEvent> breakpoint removed");
                     break;
 
                 case BreakpointUpdateType.Enabled:
-                    Logger.Out("HandlerBreakpointUpdatedEvent> breakpoint enabled");
+                    ConsoleWriteLn("HandlerBreakpointUpdatedEvent> breakpoint enabled");
                     break;
 
                 case BreakpointUpdateType.Disabled:
-                    Logger.Out("HandlerBreakpointUpdatedEvent> breakpoint disabled");
+                    ConsoleWriteLn("HandlerBreakpointUpdatedEvent> breakpoint disabled");
                     break;
             }
 
-            Logger.Out(args.Breakpoint.ToString());
-            Logger.Out();
-            Console.ForegroundColor = saveFGColor;
+            ConsoleWriteLn(args.Breakpoint.ToString());
         }
 
         private Dictionary<string, object> VariableMap = new Dictionary<string, object>();
@@ -327,25 +327,8 @@ namespace DebugPowerShell
         /// Helper method to write debugger stop messages.
         /// </summary>
         /// <param name="args">DebuggerStopEventArgs for current debugger stop</param>
-        private void PrintDebuggerStopMessage(DebuggerStopEventArgs args)
+        private void PrintCurrentCode(DebuggerStopEventArgs args)
         {
-            if (!ShowHelpMessage)
-            {
-                Logger.Out("Entering debug mode. Type 'h' to get help.");
-                Logger.Out();
-                ShowHelpMessage = true;
-            }
-
-            if (args.Breakpoints.Count > 0)
-            {
-                Logger.Out("Debugger hit breakpoint on:");
-                foreach (var breakPoint in args.Breakpoints)
-                {
-                    Logger.Out(breakPoint.ToString());
-                }
-                Logger.Out();
-            }
-
             if (args.InvocationInfo != null)
             {
                 {
@@ -390,6 +373,7 @@ namespace DebugPowerShell
 
         private string Command = string.Empty;
         private int CommandCount = 0;
+
         private void HandleDebuggerStopEvent(object sender, DebuggerStopEventArgs args)
         {
             Debugger debugger = sender as Debugger;
@@ -405,7 +389,14 @@ namespace DebugPowerShell
                 }
             }
 
-            PrintDebuggerStopMessage(args);
+            if (!ShowHelpMessage)
+            {
+                ConsoleWriteLn("Entering debug mode. Type 'h' to get help.");
+                ConsoleWriteLn("");
+                ShowHelpMessage = true;
+            }
+
+            PrintCurrentCode(args);
             while (resumeAction == null)
             {
                 if (CommandCount > 0)
