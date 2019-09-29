@@ -9,13 +9,15 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using System.IO;
 
-namespace DebugPowerShell
+namespace PowerShellRunBox
 {
     class PowershellRunner
     {
+        private UserIO UserIOImpl;
         public Dictionary<string, string> VariableReplaceMap { get; set; } = new Dictionary<string, string>();
-        public PowershellRunner(string fileName = null)
+        public PowershellRunner(string fileName = null, UserIO userIO = null)
         {
+            UserIOImpl = userIO;
             if (fileName != null)
             {
                 if (File.Exists(fileName))
@@ -34,31 +36,6 @@ namespace DebugPowerShell
             }
         }
 
-        private void ConsoleWrite(string message)
-        {
-            Console.Write(message);
-        }
-
-        private void ConsoleWriteLn(string message)
-        {
-            Console.Write(message);
-            Console.Write("\n");
-        }
-
-        private void ConsoleWrite(string message, ConsoleColor color)
-        {
-            ConsoleColor saveFGColor = Console.ForegroundColor;
-            Console.ForegroundColor = color;
-            Console.Write(message);
-            Console.ForegroundColor = saveFGColor;
-        }
-
-        private void ConsoleWriteLn(string message, ConsoleColor color)
-        {
-            ConsoleWrite(message, color);
-            ConsoleWrite("\n", color);
-        }
-
         // Method to handle the Debugger BreakpointUpdated event.
         // This method will display the current breakpoint change and maintain a 
         // collection of all current breakpoints.
@@ -71,24 +48,24 @@ namespace DebugPowerShell
                     {
                         BreakPoints.Add(args.Breakpoint.Id, args.Breakpoint);
                     }
-                    ConsoleWriteLn("HandlerBreakpointUpdatedEvent> breakpoint created");
+                    UserIOImpl.PrintMessage("HandlerBreakpointUpdatedEvent> breakpoint created");
                     break;
 
                 case BreakpointUpdateType.Removed:
                     BreakPoints.Remove(args.Breakpoint.Id);
-                    ConsoleWriteLn("HandlerBreakpointUpdatedEvent> breakpoint removed");
+                    UserIOImpl.PrintMessage("HandlerBreakpointUpdatedEvent> breakpoint removed");
                     break;
 
                 case BreakpointUpdateType.Enabled:
-                    ConsoleWriteLn("HandlerBreakpointUpdatedEvent> breakpoint enabled");
+                    UserIOImpl.PrintMessage("HandlerBreakpointUpdatedEvent> breakpoint enabled");
                     break;
 
                 case BreakpointUpdateType.Disabled:
-                    ConsoleWriteLn("HandlerBreakpointUpdatedEvent> breakpoint disabled");
+                    UserIOImpl.PrintMessage("HandlerBreakpointUpdatedEvent> breakpoint disabled");
                     break;
             }
 
-            ConsoleWriteLn(args.Breakpoint.ToString());
+            UserIOImpl.PrintMessage(args.Breakpoint.ToString());
         }
 
         private Dictionary<string, object> VariableMap = new Dictionary<string, object>();
@@ -179,7 +156,7 @@ namespace DebugPowerShell
             {
                 if (!string.IsNullOrEmpty(name))
                 {
-                    ConsoleWriteLn(prefix + @"* " + name, ConsoleColor.Red);
+                    UserIOImpl.PrintMessage(prefix + @"* " + name, "Red");
                 }
 
                 Array arr = (Array)(value);
@@ -187,7 +164,7 @@ namespace DebugPowerShell
                 if (value is System.Char[])
                 {
                     byte[] bytes = Encoding.ASCII.GetBytes((System.Char[])value);
-                    ConsoleWriteLn(DumpHex(bytes, 16, prefix + "   "), ConsoleColor.Red);
+                    UserIOImpl.PrintMessage(DumpHex(bytes, 16, prefix + "   "), "Red");
                 }
                 else
                 {
@@ -201,11 +178,11 @@ namespace DebugPowerShell
             {
                 if (string.IsNullOrEmpty(name))
                 {
-                    ConsoleWriteLn(prefix + value, ConsoleColor.Red);
+                    UserIOImpl.PrintMessage(prefix + value, "Red");
                 }
                 else
                 {
-                    ConsoleWriteLn(prefix + @"* " + name + ": " + value, ConsoleColor.Red);
+                    UserIOImpl.PrintMessage(prefix + @"* " + name + ": " + value, "Red");
                 }
             }
         }
@@ -237,7 +214,7 @@ namespace DebugPowerShell
                         {
                             if (psv.Value != VariableReplaceMap[psv.Name])
                             {
-                                ConsoleWriteLn(@"Updated variable " + psv.Name + ": " + psv.Value + " --> " + VariableReplaceMap[psv.Name], ConsoleColor.Red);
+                                UserIOImpl.PrintMessage(@"Updated variable " + psv.Name + ": " + psv.Value + " --> " + VariableReplaceMap[psv.Name], "Red");
                                 psv.Value = VariableReplaceMap[psv.Name];
                                 updatedVariable = true;
                             }
@@ -303,23 +280,24 @@ namespace DebugPowerShell
             return true;
         }
 
-        private void DumpAST(Ast ast, int level = 0)
+        private void PrintAST(Ast ast, int offsetInLine)
         {
-            string prefix = "";
-            for(int i=0; i<level; i++)
+            foreach (Ast oneAst in ast.FindAll(FindAst, true))
             {
-                prefix += " ";
-            }
-
-            foreach (Ast childAst in ast.FindAll(FindAst, false))
-            {
-                if (childAst.Parent != ast)
+                if (oneAst.Extent.StartScriptPosition.ColumnNumber != offsetInLine)
                 {
                     continue;
                 }
 
-                Logger.Out(prefix + "AST:" + level.ToString() + " " + childAst.GetType() + " > " + childAst.ToString());
-                DumpAST(childAst, level + 1);
+                string line = oneAst.Extent.StartScriptPosition.Line;
+                int startOffset = oneAst.Extent.StartScriptPosition.Offset;
+                int endOffset = oneAst.Extent.EndScriptPosition.Offset;
+                UserIOImpl.PrintCode(line.Substring(0, startOffset));
+                UserIOImpl.PrintCode(line.Substring(startOffset, endOffset-startOffset), "Yellow", "Red");
+                UserIOImpl.PrintCode(line.Substring(endOffset));
+
+                string astType = oneAst.GetType().ToString().Substring(astStringPrefixLength);
+                break;
             }
         }
 
@@ -331,43 +309,19 @@ namespace DebugPowerShell
         {
             if (args.InvocationInfo != null)
             {
+                Token[] tokens;
+                ParseError[] parseErrors;
+
+                ScriptBlockAst sciptBlockAst = System.Management.Automation.Language.Parser.ParseInput(
+                    args.InvocationInfo.Line,
+                    out tokens,
+                    out parseErrors);
+                foreach (StatementAst statementAst in sciptBlockAst.EndBlock.Statements)
                 {
-                    string previousLine = args.InvocationInfo.Line.Substring(
-                        0,
-                        args.InvocationInfo.OffsetInLine-1);
-
-                    string currentLine = args.InvocationInfo.Line.Substring(
-                        args.InvocationInfo.OffsetInLine - 1,
-                        args.InvocationInfo.Line.Length - args.InvocationInfo.OffsetInLine + 1);
-
-                    Token[] tokens;
-                    ParseError[] parseErrors;
-
-                    ScriptBlockAst previousScriptBlock = System.Management.Automation.Language.Parser.ParseInput(previousLine, out tokens, out parseErrors);
-                    ScriptBlockAst currentScriptBlock = System.Management.Automation.Language.Parser.ParseInput(currentLine, out tokens, out parseErrors);
-
-                    StringBuilder previousString = new StringBuilder();
-                    foreach (StatementAst statementAst in previousScriptBlock.EndBlock.Statements)
-                    {
-                        previousString.Append(statementAst.ToString());
-                    }
-
-                    String currentString = string.Empty;
-                    StringBuilder nextString = new StringBuilder();
-                    foreach (StatementAst statementAst in currentScriptBlock.EndBlock.Statements)
-                    {
-                        if(currentString==string.Empty)
-                        {
-                            currentString = statementAst.ToString();
-                            continue;
-                        }
-                        nextString.Append(statementAst.ToString());
-                    }
-
-                    ConsoleWrite(previousString.ToString());
-                    ConsoleWrite(currentString, ConsoleColor.Yellow);
-                    ConsoleWrite(nextString.ToString()+"\n");
+                    PrintAST(statementAst, args.InvocationInfo.OffsetInLine);
                 }
+
+                UserIOImpl.PrintCode("\n");
             }
         }
 
@@ -391,8 +345,7 @@ namespace DebugPowerShell
 
             if (!ShowHelpMessage)
             {
-                ConsoleWriteLn("Entering debug mode. Type 'h' to get help.");
-                ConsoleWriteLn("");
+                UserIOImpl.PrintMessage("Entering debug mode. Type 'h' to get help.\n");
                 ShowHelpMessage = true;
             }
 
@@ -406,8 +359,7 @@ namespace DebugPowerShell
                 }
                 else
                 {
-                    Console.Write("PowerShell Debugger>> ");
-                    string commandLine = Console.ReadLine();
+                    string commandLine = UserIOImpl.GetInput("PowerShell Debugger>> ");
                     Logger.Out();
                     string[] commandArgs = commandLine.Split(' ');
 
@@ -460,11 +412,11 @@ namespace DebugPowerShell
                     runspace.Debugger.BreakpointUpdated += HandlerBreakpointUpdatedEvent;
                     runspace.Debugger.DebuggerStop += HandleDebuggerStopEvent;
 
-                    Logger.Out("Starting script file: " + filePath);
+                    UserIOImpl.PrintMessage("Starting script file: " + filePath);
                     powerShell.AddStatement().AddCommand("Set-PSBreakpoint").AddParameter("Script", filePath).AddParameter("Line", 1);
                     foreach (var kv in VariableReplaceMap)
                     {
-                        Logger.Out("Setting variable breakpoint on: " + kv.Key);
+                        UserIOImpl.PrintMessage("Setting variable breakpoint on: " + kv.Key);
                         powerShell.AddStatement().AddCommand("Set-PSBreakpoint").AddParameter("Variable", kv.Key);
                     }
                     powerShell.AddStatement().AddCommand("Set-ExecutionPolicy").AddParameter("ExecutionPolicy", "Bypass").AddParameter("Scope", "CurrentUser");
@@ -475,7 +427,7 @@ namespace DebugPowerShell
                     {
                         foreach (var item in scriptOutput.ReadAll())
                         {
-                            Logger.Out("| " + item);
+                            UserIOImpl.PrintMessage("| " + item);
                         }
                     };
 
@@ -487,7 +439,7 @@ namespace DebugPowerShell
                         {
                             if (errorRecord != null && errorRecord.ErrorDetails != null)
                             {
-                                Logger.Out(errorRecord.ErrorDetails.Message);
+                                UserIOImpl.PrintMessage(errorRecord.ErrorDetails.Message);
                             }
                         }
                     }
