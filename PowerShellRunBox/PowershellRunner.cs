@@ -298,12 +298,38 @@ namespace PowerShellRunBox
                         oneAst.Extent.StartScriptPosition.File,
                         oneAst.Extent.StartScriptPosition.LineNumber));
                 }
-                
+
                 UserIOImpl.PrintCode(line.Substring(0, startOffset));
                 UserIOImpl.PrintCode(line.Substring(startOffset, endOffset-startOffset), "Yellow", "Red");
                 UserIOImpl.PrintCode(line.Substring(endOffset));
                 break;
             }
+        }
+
+        private Dictionary<string, string[]> fileLines = new Dictionary<string, string[]>();
+        private void ReadFile(string filename)
+        {
+            if (!fileLines.ContainsKey(filename))
+            {
+                string[] lines = System.IO.File.ReadAllLines(filename);
+                fileLines.Add(filename, lines);
+            }
+        }
+
+        private string GetFileLine(string filename, int lineNumber)
+        {
+            if (!fileLines.ContainsKey(filename))
+            {
+                return string.Empty;
+            }
+
+            int index = lineNumber - 1;
+            if (index >= fileLines[filename].Length || index < 0)
+            {
+                return string.Empty;
+            }
+
+            return fileLines[filename][index];
         }
 
         /// <summary>
@@ -325,17 +351,26 @@ namespace PowerShellRunBox
                 out tokens,
                 out parseErrors);
 
-            
+
             if (!string.IsNullOrEmpty(args.InvocationInfo.ScriptName))
             {
+                ReadFile(args.InvocationInfo.ScriptName);
                 UserIOImpl.PrintCode(String.Format("File {0}: {1}\n",
                     args.InvocationInfo.ScriptName, args.InvocationInfo.ScriptLineNumber));
+
+                UserIOImpl.PrintCode(GetFileLine(args.InvocationInfo.ScriptName, args.InvocationInfo.ScriptLineNumber - 1) + "\n");
             }
 
             foreach (StatementAst statementAst in sciptBlockAst.EndBlock.Statements)
             {
                 PrintAST(statementAst, args.InvocationInfo.OffsetInLine);
             }
+
+            if (!string.IsNullOrEmpty(args.InvocationInfo.ScriptName))
+            {
+                UserIOImpl.PrintCode(GetFileLine(args.InvocationInfo.ScriptName, args.InvocationInfo.ScriptLineNumber + 1) + "\n");
+            }
+
             UserIOImpl.PrintCode("\n");
         }
 
@@ -365,7 +400,7 @@ namespace PowerShellRunBox
                 }
                 else
                 {
-                    string commandLine = UserIOImpl.GetInput("PowerShell Debugger>> ");
+                    string commandLine = UserIOImpl.GetInput("PowerShellRunBox>> ");
                     string[] commandArgs = commandLine.Split(' ');
 
                     if (commandArgs.Length <= 0)
