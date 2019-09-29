@@ -187,7 +187,7 @@ namespace PowerShellRunBox
             }
         }
 
-        private bool UpdateVariableMap(Debugger debugger)
+        private bool CheckVariables(Debugger debugger)
         {
             bool updatedVariable = false;
             var processVariables = new PSDataCollection<PSObject>();
@@ -212,7 +212,7 @@ namespace PowerShellRunBox
 
                         if (VariableReplaceMap != null && VariableReplaceMap.ContainsKey(psv.Name))
                         {
-                            if (psv.Value != VariableReplaceMap[psv.Name])
+                            if (psv.Value.ToString() != VariableReplaceMap[psv.Name])
                             {
                                 UserIOImpl.PrintMessage(@"Updated variable " + psv.Name + ": " + psv.Value + " --> " + VariableReplaceMap[psv.Name], "Red");
                                 psv.Value = VariableReplaceMap[psv.Name];
@@ -226,16 +226,16 @@ namespace PowerShellRunBox
                     {
                         ErrorRecord errorRecord = (ErrorRecord)item.ImmediateBaseObject;
 
-                        Logger.Out(@"* item: " + item.ImmediateBaseObject.GetType());
+                        UserIOImpl.PrintMessage(@"* item: " + item.ImmediateBaseObject.GetType() + "\n");
 
                         if (errorRecord != null && errorRecord.ErrorDetails != null)
                         {
-                            Logger.Out(errorRecord.ErrorDetails.Message);
+                            UserIOImpl.PrintMessage(errorRecord.ErrorDetails.Message + "\n");
                         }
                     }
                     else
                     {
-                        Logger.Out(@"* item: " + item.ImmediateBaseObject.GetType());
+                        UserIOImpl.PrintMessage(@"* item: " + item.ImmediateBaseObject.GetType());
                     }
                 }
             };
@@ -243,7 +243,6 @@ namespace PowerShellRunBox
             PSCommand psCommand = new PSCommand();
             psCommand.AddScript("Get-Variable");
             DebuggerCommandResults results = debugger.ProcessCommand(psCommand, processVariables);
-
             return updatedVariable;
         }
 
@@ -295,8 +294,6 @@ namespace PowerShellRunBox
                 UserIOImpl.PrintCode(line.Substring(0, startOffset));
                 UserIOImpl.PrintCode(line.Substring(startOffset, endOffset-startOffset), "Yellow", "Red");
                 UserIOImpl.PrintCode(line.Substring(endOffset));
-
-                string astType = oneAst.GetType().ToString().Substring(astStringPrefixLength);
                 break;
             }
         }
@@ -316,6 +313,7 @@ namespace PowerShellRunBox
                     args.InvocationInfo.Line,
                     out tokens,
                     out parseErrors);
+
                 foreach (StatementAst statementAst in sciptBlockAst.EndBlock.Statements)
                 {
                     PrintAST(statementAst, args.InvocationInfo.OffsetInLine);
@@ -333,21 +331,13 @@ namespace PowerShellRunBox
             Debugger debugger = sender as Debugger;
             DebuggerResumeAction? resumeAction = null;
 
-            UpdateVariableMap(debugger);
-
-            foreach (Breakpoint breakpoint in args.Breakpoints)
-            {
-                if (BreakPoints.ContainsKey(breakpoint.Id))
-                {
-                    Logger.Out("Found breakpoint info");
-                }
-            }
-
             if (!ShowHelpMessage)
             {
                 UserIOImpl.PrintMessage("Entering debug mode. Type 'h' to get help.\n");
                 ShowHelpMessage = true;
             }
+
+            CheckVariables(debugger);
 
             PrintCurrentCode(args);
             while (resumeAction == null)
