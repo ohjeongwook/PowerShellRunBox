@@ -291,6 +291,14 @@ namespace PowerShellRunBox
                 string line = oneAst.Extent.StartScriptPosition.Line;
                 int startOffset = oneAst.Extent.StartScriptPosition.Offset;
                 int endOffset = oneAst.Extent.EndScriptPosition.Offset;
+
+                if (!string.IsNullOrEmpty(oneAst.Extent.StartScriptPosition.File))
+                {
+                    UserIOImpl.PrintCode(String.Format("File {0}: {1}",
+                        oneAst.Extent.StartScriptPosition.File,
+                        oneAst.Extent.StartScriptPosition.LineNumber));
+                }
+                
                 UserIOImpl.PrintCode(line.Substring(0, startOffset));
                 UserIOImpl.PrintCode(line.Substring(startOffset, endOffset-startOffset), "Yellow", "Red");
                 UserIOImpl.PrintCode(line.Substring(endOffset));
@@ -304,23 +312,31 @@ namespace PowerShellRunBox
         /// <param name="args">DebuggerStopEventArgs for current debugger stop</param>
         private void PrintCurrentCode(DebuggerStopEventArgs args)
         {
-            if (args.InvocationInfo != null)
+            if (args.InvocationInfo == null)
             {
-                Token[] tokens;
-                ParseError[] parseErrors;
-
-                ScriptBlockAst sciptBlockAst = System.Management.Automation.Language.Parser.ParseInput(
-                    args.InvocationInfo.Line,
-                    out tokens,
-                    out parseErrors);
-
-                foreach (StatementAst statementAst in sciptBlockAst.EndBlock.Statements)
-                {
-                    PrintAST(statementAst, args.InvocationInfo.OffsetInLine);
-                }
-
-                UserIOImpl.PrintCode("\n");
+                return;
             }
+
+            Token[] tokens;
+            ParseError[] parseErrors;
+
+            ScriptBlockAst sciptBlockAst = Parser.ParseInput(
+                args.InvocationInfo.Line,
+                out tokens,
+                out parseErrors);
+
+            
+            if (!string.IsNullOrEmpty(args.InvocationInfo.ScriptName))
+            {
+                UserIOImpl.PrintCode(String.Format("File {0}: {1}\n",
+                    args.InvocationInfo.ScriptName, args.InvocationInfo.ScriptLineNumber));
+            }
+
+            foreach (StatementAst statementAst in sciptBlockAst.EndBlock.Statements)
+            {
+                PrintAST(statementAst, args.InvocationInfo.OffsetInLine);
+            }
+            UserIOImpl.PrintCode("\n");
         }
 
         private string Command = string.Empty;
@@ -338,8 +354,8 @@ namespace PowerShellRunBox
             }
 
             CheckVariables(debugger);
-
             PrintCurrentCode(args);
+
             while (resumeAction == null)
             {
                 if (CommandCount > 0)
