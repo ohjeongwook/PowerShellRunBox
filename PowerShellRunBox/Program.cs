@@ -2,7 +2,7 @@
 using System.IO;
 using System.Linq;
 
-namespace DebugPowerShell
+namespace PowerShellRunBox
 {
     public class DebuggerSample
     {
@@ -13,8 +13,9 @@ namespace DebugPowerShell
                 return;
             }
 
+            ConsoleIO consoleIO = new ConsoleIO();
             // Create DebuggerSample class instance and begin debugging sample script.
-            var powershellRunner = new PowershellRunner("Config.json");
+            var powershellRunner = new PowershellRunner("Config.json", consoleIO);
             powershellRunner.RunCode(args);
         }
 
