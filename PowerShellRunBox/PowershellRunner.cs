@@ -253,7 +253,7 @@ namespace PowerShellRunBox
             {
                 foreach (var item in output.ReadAll())
                 {
-                    Logger.Out(item.ToString());
+                    UserIOImpl.PrintMessage(item.ToString()+"\n");
                 }
             };
 
@@ -366,7 +366,6 @@ namespace PowerShellRunBox
                 else
                 {
                     string commandLine = UserIOImpl.GetInput("PowerShell Debugger>> ");
-                    Logger.Out();
                     string[] commandArgs = commandLine.Split(' ');
 
                     if (commandArgs.Length <= 0)
