@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DebugPowerShell
+namespace PowerShellRunBox
 {
     public static class Logger
     {
