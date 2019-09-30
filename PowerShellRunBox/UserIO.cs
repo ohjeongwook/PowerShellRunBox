@@ -8,7 +8,7 @@ namespace PowerShellRunBox
 {
     interface UserIO
     {
-        void PrintCode(string message, string fgColor = "White", string bgColor = "Black");
+        void PrintCode(string message, int lineNumber = -1, string fgColor = "White", string bgColor = "Black");
         void PrintVariable(string message);
         void PrintError(string message);
         void PrintMessage(string message, string fgColor = "White", string bgColor = "Black");

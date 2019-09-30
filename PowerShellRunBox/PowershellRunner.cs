@@ -319,16 +319,18 @@ namespace PowerShellRunBox
                 string line = oneAst.Extent.StartScriptPosition.Line;
                 int startOffset = oneAst.Extent.StartScriptPosition.Offset;
                 int endOffset = oneAst.Extent.EndScriptPosition.Offset;
+                int lineNumber = -1;
 
                 if (!string.IsNullOrEmpty(oneAst.Extent.StartScriptPosition.File))
                 {
-                    UserIOImpl.PrintCode(String.Format("File {0}: {1}",
-                        oneAst.Extent.StartScriptPosition.File,
-                        oneAst.Extent.StartScriptPosition.LineNumber));
+                    UserIOImpl.PrintCode(String.Format("* File {0}:",
+                        oneAst.Extent.StartScriptPosition.File));
+
+                    lineNumber = oneAst.Extent.StartScriptPosition.LineNumber;
                 }
 
-                UserIOImpl.PrintCode(line.Substring(0, startOffset));
-                UserIOImpl.PrintCode(line.Substring(startOffset, endOffset - startOffset), "Yellow", "Red");
+                UserIOImpl.PrintCode(line.Substring(0, startOffset), lineNumber);
+                UserIOImpl.PrintCode(line.Substring(startOffset, endOffset - startOffset), -1, "Yellow", "Red");
                 UserIOImpl.PrintCode(line.Substring(endOffset));
                 break;
             }
@@ -381,14 +383,14 @@ namespace PowerShellRunBox
                 out tokens,
                 out parseErrors);
 
-
+            UserIOImpl.PrintCode("--------------------------------------------------------------------------------------------------------------\n");
             if (!string.IsNullOrEmpty(args.InvocationInfo.ScriptName))
             {
                 ReadFile(args.InvocationInfo.ScriptName);
-                UserIOImpl.PrintCode(String.Format("File {0}: {1}\n",
-                    args.InvocationInfo.ScriptName, args.InvocationInfo.ScriptLineNumber));
+                UserIOImpl.PrintCode(String.Format("* File {0}:\n",
+                    args.InvocationInfo.ScriptName));
 
-                UserIOImpl.PrintCode(GetFileLine(args.InvocationInfo.ScriptName, args.InvocationInfo.ScriptLineNumber - 1) + "\n");
+                UserIOImpl.PrintCode(GetFileLine(args.InvocationInfo.ScriptName, args.InvocationInfo.ScriptLineNumber - 1) + "\n", args.InvocationInfo.ScriptLineNumber - 1);
             }
 
             foreach (StatementAst statementAst in sciptBlockAst.EndBlock.Statements)
@@ -398,15 +400,10 @@ namespace PowerShellRunBox
 
             if (!string.IsNullOrEmpty(args.InvocationInfo.ScriptName))
             {
-                UserIOImpl.PrintCode(GetFileLine(args.InvocationInfo.ScriptName, args.InvocationInfo.ScriptLineNumber + 1) + "\n");
+                UserIOImpl.PrintCode(GetFileLine(args.InvocationInfo.ScriptName, args.InvocationInfo.ScriptLineNumber + 1) + "\n", args.InvocationInfo.ScriptLineNumber + 1);
             }
 
-            UserIOImpl.PrintCode("\n");
-
-            /*foreach (StatementAst statementAst in sciptBlockAst.EndBlock.Statements)
-            {
-                PrintCode(statementAst);
-            }*/
+            UserIOImpl.PrintCode("\n--------------------------------------------------------------------------------------------------------------\n\n");
         }
 
         private string Command = string.Empty;

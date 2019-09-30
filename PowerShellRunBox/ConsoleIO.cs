@@ -40,8 +40,13 @@ namespace PowerShellRunBox
             ConsoleWrite("\n", fgColor, bgColor);
         }
 
-        public void PrintCode(string message, string fgColor = "White", string bgColor = "Black")
+        public void PrintCode(string message, int lineNumber = -1, string fgColor = "White", string bgColor = "Black")
         {
+            if (lineNumber > 0)
+            {
+                message = lineNumber + ":" + message;
+            }
+
             ConsoleWrite(message,
                 (ConsoleColor)Enum.Parse(typeof(ConsoleColor), fgColor),
                 (ConsoleColor)Enum.Parse(typeof(ConsoleColor), bgColor));
