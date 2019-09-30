@@ -269,43 +269,6 @@ namespace PowerShellRunBox
         /// </summary>
         private bool ShowHelpMessage;
 
-        /// <summary>
-        /// Collection of all breakpoints on the runspace debugger.
-        /// </summary>
-        private Dictionary<int, Breakpoint> BreakPoints = new Dictionary<int, Breakpoint>();
-
-        private bool FindAst(Ast ast)
-        {
-            return true;
-        }
-
-        private void PrintAST(Ast ast, int offsetInLine)
-        {
-            foreach (Ast oneAst in ast.FindAll(FindAst, true))
-            {
-                if (oneAst.Extent.StartScriptPosition.ColumnNumber != offsetInLine)
-                {
-                    continue;
-                }
-
-                string line = oneAst.Extent.StartScriptPosition.Line;
-                int startOffset = oneAst.Extent.StartScriptPosition.Offset;
-                int endOffset = oneAst.Extent.EndScriptPosition.Offset;
-
-                if (!string.IsNullOrEmpty(oneAst.Extent.StartScriptPosition.File))
-                {
-                    UserIOImpl.PrintCode(String.Format("File {0}: {1}",
-                        oneAst.Extent.StartScriptPosition.File,
-                        oneAst.Extent.StartScriptPosition.LineNumber));
-                }
-
-                UserIOImpl.PrintCode(line.Substring(0, startOffset));
-                UserIOImpl.PrintCode(line.Substring(startOffset, endOffset-startOffset), "Yellow", "Red");
-                UserIOImpl.PrintCode(line.Substring(endOffset));
-                break;
-            }
-        }
-
         private Dictionary<string, string[]> fileLines = new Dictionary<string, string[]>();
         private void ReadFile(string filename)
         {
@@ -330,6 +293,73 @@ namespace PowerShellRunBox
             }
 
             return fileLines[filename][index];
+        }
+
+        /// <summary>
+        /// Collection of all breakpoints on the runspace debugger.
+        /// </summary>
+        private Dictionary<int, Breakpoint> BreakPoints = new Dictionary<int, Breakpoint>();
+
+        private bool FindAst(Ast ast)
+        {
+            return true;
+        }
+
+        private static readonly int automationLanguageAssemblyNameLength = "System.Management.Automation.Language.".Length;
+
+        private void PrintAST(Ast ast, int offsetInLine)
+        {
+            foreach (Ast oneAst in ast.FindAll(FindAst, true))
+            {
+                if (oneAst.Extent.StartScriptPosition.ColumnNumber != offsetInLine)
+                {
+                    continue;
+                }
+
+                string line = oneAst.Extent.StartScriptPosition.Line;
+                int startOffset = oneAst.Extent.StartScriptPosition.Offset;
+                int endOffset = oneAst.Extent.EndScriptPosition.Offset;
+
+                if (!string.IsNullOrEmpty(oneAst.Extent.StartScriptPosition.File))
+                {
+                    UserIOImpl.PrintCode(String.Format("File {0}: {1}",
+                        oneAst.Extent.StartScriptPosition.File,
+                        oneAst.Extent.StartScriptPosition.LineNumber));
+                }
+
+                UserIOImpl.PrintCode(line.Substring(0, startOffset));
+                UserIOImpl.PrintCode(line.Substring(startOffset, endOffset - startOffset), "Yellow", "Red");
+                UserIOImpl.PrintCode(line.Substring(endOffset));
+                break;
+            }
+        }
+
+        private void PrintCode(Ast ast, int level = 0)
+        {
+            string prefix = "";
+            for(int i=0;i< level;i++)
+            {
+                prefix += " ";
+            }
+
+            string line = ast.Extent.StartScriptPosition.Line;
+            int startOffset = ast.Extent.StartScriptPosition.Offset;
+            int endOffset = ast.Extent.EndScriptPosition.Offset;
+
+            UserIOImpl.PrintCode(prefix + "> " + line.Substring(startOffset, endOffset - startOffset) + " [" + ast.GetType().ToString().Substring(automationLanguageAssemblyNameLength) + "]\n");
+
+            foreach (Ast oneAst in ast.FindAll(FindAst, false))
+            {
+                if(oneAst.Parent != ast)
+                {
+                    continue;
+                }
+
+                line = oneAst.Extent.StartScriptPosition.Line;
+                startOffset = oneAst.Extent.StartScriptPosition.Offset;
+                endOffset = oneAst.Extent.EndScriptPosition.Offset;
+                PrintCode(oneAst, level + 1);
+            }
         }
 
         /// <summary>
@@ -372,6 +402,11 @@ namespace PowerShellRunBox
             }
 
             UserIOImpl.PrintCode("\n");
+
+            /*foreach (StatementAst statementAst in sciptBlockAst.EndBlock.Statements)
+            {
+                PrintCode(statementAst);
+            }*/
         }
 
         private string Command = string.Empty;
